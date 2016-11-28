@@ -78,7 +78,7 @@ def skipgram_old(currentWord, C, contextWords, tokens, inputVectors, outputVecto
     cost, gradIn[t] , gradOut = map(sum, zip(*p_list))
     return cost, gradIn, gradOut
 
-def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_idx,
+def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_idx, prev_idx,
     K=10):
     """ Negative sampling cost function for word2vec models """
 
@@ -99,15 +99,16 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_id
 
     negative_set = set(neg_idx)
     negative_set.discard(target)
+    negative_set = negative_set.difference(prev_idx)
     negative_idx = list(negative_set)
     #print target
     #print negative_idx
     target_vector = outputVectors[target]
     U = outputVectors[negative_idx]
-
     negative_idx.append(target)
+    prev_idx += negative_idx
 
-    grad = np.zeros(outputVectors[negative_idx].shape)# 10^6 x 100 #TODO
+    #grad = np.zeros(outputVectors[negative_idx].shape)# 10^6 x 100 #TODO
     negative_idx.remove(target)#TODO
 
     prod_t = np.dot(target_vector, predicted)
@@ -120,7 +121,7 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_id
     h =  sig_n * U.T
     n =  -np.log(1 - sig_n)
     
-    gradPred =  np.sum(h, axis=1)
+    #gradPred =  np.sum(h, axis=1)
 
     #cost = -np.log(sig) + np.sum(n)#TODO cost is only needed for checking
     #print np.log(sig)
@@ -131,7 +132,7 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_id
     #cost.append()
     
     #cost = np.concatenate((n, np.array([-np.log(sig)])))
-    nn =  sig_n[:, np.newaxis] * predicted
+    grad =  sig_n[:, np.newaxis] * predicted
     #k = 0
     #for _idx in negative_idx:
         #cost += n[g]
@@ -139,7 +140,7 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_id
     #print nn.shape
     #print (g * predicted).reshape(1, -1).shape
     
-    grad = nn
+    
     #print grad
     #exit()
         #k  =  k + 1
@@ -148,7 +149,7 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset, neg_id
     return cost, -np.log(sig), h, g * target_vector.T, negative_idx, grad, g * predicted
 
 
-def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, neg_idx,
+def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, neg_idx, prev_idx,
     dataset, word2vecCostAndGradient = negSamplingCostAndGradient):
     """ Skip-gram model in word2vec """
 
@@ -176,8 +177,8 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, 
 
     ### YOUR CODE HERE
 
-    gradIn = np.zeros(inputVectors.shape)#TODO
-    gradOut = np.zeros(np.shape(outputVectors))
+    #gradIn = np.zeros(inputVectors.shape)#TODO
+    #gradOut = np.zeros(np.shape(outputVectors))
     #print inputVectors.shape
     t = tokens[currentWord]
     predicted = inputVectors[t]
@@ -187,7 +188,7 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, 
     contextWords = list(contextWords_set)
     #print contextWords
     #exit()
-    p_list = map((lambda x: word2vecCostAndGradient(predicted, tokens[x], outputVectors, dataset, neg_idx)), contextWords)
+    p_list = map((lambda x: word2vecCostAndGradient(predicted, tokens[x], outputVectors, dataset, neg_idx, prev_idx)), contextWords)
     #map((lambda x: if x[3]))
     cost = 0
     #for p in p_list:
@@ -264,34 +265,65 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, 
     
     return cost_stack, cost_target, target_indices, gradIn_stack, gradIn_target_stack, arr_neg_idx, gradOut_stack, gradOut_target_stack
 
-def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, word2vecCostAndGradient = negSamplingCostAndGradient):   
+def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, it, word2vecCostAndGradient = negSamplingCostAndGradient):   
+    prev_idx = []
     batchsize = 50
     cost = 0.0
     cost_old = 0.0
-    grad = np.zeros(wordVectors.shape)
     N = wordVectors.shape[0]
     inputVectors = wordVectors[:N/2,:]
     outputVectors = wordVectors[N/2:,:]
-    for i in xrange(batchsize):
+    grad = np.zeros(wordVectors.shape)
+    count = 0
+    first = True
+    I_in = np.array([])
+    GradIn = np.array([])
+    GradIn_target = np.array([])
+    I_out = np.array([])
+    GradOut = np.array([])
+    GradOut_target = np.array([])
+    for i in it:
+        
         C1 = random.randint(1,C)
-        centerword, context = dataset.getRandomContext(C1)
         K = 10
-        neg_idx = [dataset.sampleTokenIdx() for i in range(K)]
+        neg_idx = [dataset.sampleTokenIdx() for k in range(K)]
         denom = 1
+        centerword, context = i
+        print(centerword)
+        c, c_target, idx_in, gin, gin_target, idx_out, gout, gout_target = word2vecModel(centerword, C1, context, tokens, inputVectors, outputVectors, neg_idx, prev_idx, dataset, word2vecCostAndGradient)
+        #cost += c / batchsize / denom
         
-        c, c_target, idx_in, gin, gin_target, idx_out, gout, gout_target = word2vecModel(centerword, C1, context, tokens, inputVectors, outputVectors, neg_idx, dataset, word2vecCostAndGradient)
-        c_old, gin_old, gout_old = skipgram_old(centerword, C1, context, tokens, inputVectors, outputVectors, neg_idx, dataset, negSamplingCostAndGradient_old)
-
-        
-        u, indices = np.unique(idx_out, return_index=True)
-        grad[u, :] += gout[indices] / batchsize / denom
-        grad[idx_in, :] += gout_target / batchsize / denom
-        cost += (sum(c[indices]) + c_target) / batchsize / denom
-
-        gin_sum = np.sum(gin[:, indices], axis = 1) + np.sum(gin_target, axis = 0)
-        grad[idx_in, :] += gin_sum / batchsize / denom
-        cost_old += c_old / batchsize / denom
+        #grad[:N/2, :] += gin / batchsize / denom
+        #grad[N/2:, :] += gout / batchsize / denom
+        count += 1
+        if (count < batchsize):
+            grad[idx_out, :] += gout
+            grad[idx_in, :] += gout_target
+            h = [i + N/2 for i in idx_in]
+            grad[h, :] = np.sum(gin, axis=1) + gin_target
+            cost += (sum(c) + c_target) / batchsize / denom
+            if (first):
+                first = False
+                I_in = idx_in
+                I_out = idx_out
+                GradIn = gin
+                GradIn_target = gin_target
+                GradOut = gout
+                GradOut_target = gout_target
+            else:
+                I_in = np.concatenate([I_in, idx_in])
+                I_out = np.concatenate([I_out, idx_out])
+                GradIn = np.concatenate([GradIn, gin], axis = 1)
+                GradIn_target = np.concatenate([GradIn_target, gin_target])
+                GradOut = np.concatenate([GradOut, gout])
+                GradOut_target = np.concatenate([GradOut_target, gout_target])
+        else:
+            print cost
+            return cost, grad
+    print cost
     return cost, grad
+            #return I_in, GradIn, GradIn_target, I_out, GradOut, GradOut_target
+    #return I_in, GradIn, GradIn_target, I_out, GradOut, GradOut_target
 
 def test_word2vec():
     # Interface to the dataset for negative sampling
@@ -301,17 +333,19 @@ def test_word2vec():
 
     def getRandomContext(C):
         tokens = ["a", "b", "c", "d", "e"]
-        return tokens[random.randint(0,4)], [tokens[random.randint(0,4)] \
+        yield tokens[random.randint(0,4)], [tokens[random.randint(0,4)] \
            for i in xrange(2*C)]
     dataset.sampleTokenIdx = dummySampleTokenIdx
     dataset.getRandomContext = getRandomContext
-
+    C = 10
+    word = dataset.getRandomContext(C)#can input random(C) inside this function
+    it = iter(word)
     random.seed(31415)
     np.random.seed(9265)
     dummy_vectors = normalizeRows(np.random.randn(10,3))
     dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
 
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient), dummy_vectors)
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, C, it, negSamplingCostAndGradient), dummy_vectors)
 if __name__ == "__main__":
 
     test_word2vec()
