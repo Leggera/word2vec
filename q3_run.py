@@ -1,35 +1,44 @@
 import random
 import numpy as np
+import pickle
 from cs224d.data_utils import *
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from q3_word2vec import *
 from q3_sgd import *
 
 # Reset the random seed to make sure that everyone gets the same results
 random.seed(314)
+print 'a'
 dataset = StanfordSentiment()
+print 'b'
 tokens = dataset.tokens()
-nWords = len(tokens)
+print 'c'
+nWords = len(tokens)#2771466#1913160188 - not unique
+
 
 # We are going to train 10-dimensional vectors for this assignment
-dimVectors = 10# 100
+dimVectors = 10#100 
 
 # Context size
 C = 5#10
-
+word = dataset.getRandomContext(C)
+#word = dataset.getContext(C)#can input random(C) inside this function
+it = iter(word)
 # Reset the random seed to make sure that everyone gets the same results
 random.seed(31415)
 np.random.seed(9265)
+print 'd'
 wordVectors = np.concatenate(((np.random.rand(nWords, dimVectors) - .5) / \
-	dimVectors, np.zeros((nWords, dimVectors))), axis=0)
+	dimVectors, np.random.rand(nWords, dimVectors)), axis=0)
+print 'e'
 wordVectors0 = sgd(
-    lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, 
+    lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, it, 
     	negSamplingCostAndGradient), 
-    wordVectors, 0.3, 400, None, True, PRINT_EVERY=10)
+    wordVectors, 0.3, 40000, None, True, PRINT_EVERY=10)
 print "sanity check: cost at convergence should be around or below 10"
 
-'''# sum the input and output word vectors
+# sum the input and output word vectors
 wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:])
 
 # Visualize the word vectors you trained
@@ -54,4 +63,4 @@ plt.xlim((np.min(coord[:,0]), np.max(coord[:,0])))
 plt.ylim((np.min(coord[:,1]), np.max(coord[:,1])))
 
 plt.savefig('q3_word_vectors.png')
-plt.show()'''
+plt.show()

@@ -70,28 +70,50 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False, PRINT_
     
     expcost = None
     
-    for iter in xrange(start_iter + 1, iterations + 1):
+    for iter_ in xrange(start_iter + 1, iterations + 1):
         ### Don't forget to apply the postprocessing after every iteration!
         ### You might want to print the progress every few iterations.
-
-        cost = None
+        #count = 0
         ### YOUR CODE HERE
-        cost, gradient = f(x)
-        x -= step * gradient
+        N = x.shape[0]
+        cost, idx_in, gin, idx_out, gout, gout_target, T = f(x)
+        '''u, indices = np.unique(idx_out, return_index=True)
+        t_v = np.in1d(u, idx_in)
+        #print cost, gradient
+        x[u[t_v]] -= step * gout[indices[t_v]]
+        x[idx_in] -= step * gout_target
+        gin_sum = np.sum(gin[:, indices], axis = 1) + np.sum(gin_target, axis = 0)
+        x[idx_in] -= step * gin_sum'''
+        h = [i + N/2 for i in idx_out]
+        x[h, :] -= step * gout
+        #print x[h, :]
+        h = [i + N/2 for i in idx_in]
+        x[h, :] -= step * gout_target
+        #print x[h, :]
+        x[T, :] -= step * gin.T
+        #print x[T, :]        
+        #print len(h)
+        '''print len(T)#centerword amount
+        print x[T, :].shape
+        print gin.shape'''
+        #print (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).shape
+        #print("ok")
+        #exit()
+        #print x
         x = postprocessing(x)
         ### END YOUR CODE
-        
-        if iter % PRINT_EVERY == 0:
+        #print cost
+        if iter_ % PRINT_EVERY == 0:
             if not expcost:
                 expcost = cost
             else:
                 expcost = .95 * expcost + .05 * cost
-            print "iter %d: %f" % (iter, expcost)
-        
-        if iter % SAVE_PARAMS_EVERY == 0 and useSaved:
-            save_params(iter, x)
+            print "iter %d: %f" % (iter_, expcost)
+
+        if iter_ % SAVE_PARAMS_EVERY == 0 and useSaved:
+            save_params(iter_, x)
             
-        if iter % ANNEAL_EVERY == 0:
+        if iter_ % ANNEAL_EVERY == 0:
             step *= 0.5
     
     return x
