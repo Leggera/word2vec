@@ -10,13 +10,13 @@ import cPickle as pickle
 def load_saved_params():
     """ A helper function that loads previously saved parameters and resets iteration start """
     st = 0
-    for f in glob.glob("saved_params_*.npy"):
+    for f in glob.glob("/data/saved_params_*.npy"):
         iter = int(op.splitext(op.basename(f))[0].split("_")[2])
         if (iter > st):
             st = iter
             
     if st > 0:
-        with open("saved_params_%d.npy" % st, "r") as f:
+        with open("/data/saved_params_%d.npy" % st, "r") as f:
             params = pickle.load(f)
             state = pickle.load(f)
         return st, params, state
@@ -24,7 +24,7 @@ def load_saved_params():
         return st, None, None
     
 def save_params(iter, params):
-    with open("saved_params_%d.npy" % iter, "w") as f:
+    with open("/data/saved_params_%d.npy" % iter, "w") as f:
         pickle.dump(params, f)
         pickle.dump(random.getstate(), f)
 
@@ -77,45 +77,52 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False, PRINT_
         ### YOUR CODE HERE
         N = x.shape[0]
         cost, idx_in, gin, idx_out, gout, gout_target, T = f(x)
-        '''u, indices = np.unique(idx_out, return_index=True)
-        t_v = np.in1d(u, idx_in)
-        #print cost, gradient
-        x[u[t_v]] -= step * gout[indices[t_v]]
-        x[idx_in] -= step * gout_target
-        gin_sum = np.sum(gin[:, indices], axis = 1) + np.sum(gin_target, axis = 0)
-        x[idx_in] -= step * gin_sum'''
-        h = [i + N/2 for i in idx_out]
-        x[h, :] -= step * gout
-        #print x[h, :]
-        h = [i + N/2 for i in idx_in]
-        x[h, :] -= step * gout_target
-        #print x[h, :]
-        x[T, :] -= step * gin.T
-        #print x[T, :]        
-        #print len(h)
-        '''print len(T)#centerword amount
-        print x[T, :].shape
-        print gin.shape'''
-        #print (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).shape
-        #print("ok")
-        #exit()
-        #print x
-        x = postprocessing(x)
-        ### END YOUR CODE
-        #print cost
-        if iter_ % PRINT_EVERY == 0:
-            if not expcost:
-                expcost = cost
-            else:
-                expcost = .95 * expcost + .05 * cost
-            print "iter %d: %f" % (iter_, expcost)
+        if (len(idx_in)) and (len(idx_out)):
+            '''u, indices = np.unique(idx_out, return_index=True)
+            t_v = np.in1d(u, idx_in)
+            #print cost, gradient
+            x[u[t_v]] -= step * gout[indices[t_v]]
+            x[idx_in] -= step * gout_target
+            gin_sum = np.sum(gin[:, indices], axis = 1) + np.sum(gin_target, axis = 0)
+            x[idx_in] -= step * gin_sum'''
+            h = [i + N/2 for i in idx_out]
+            try:
+                x[h, :] -= step * gout
+            except:
+                print h
+                print x[h, :].shape
+                print gout.shape
+                exit()
+            #print x[h, :]
+            h = [i + N/2 for i in idx_in]
+            x[h, :] -= step * gout_target
+            #print x[h, :]
+            x[T, :] -= step * gin.T
+            #print x[T, :]        
+            #print len(h)
+            '''print len(T)#centerword amount
+            print x[T, :].shape
+            print gin.shape'''
+            #print (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).shape
+            #print("ok")
+            #exit()
+            #print x
+            x = postprocessing(x)
+            ### END YOUR CODE
+            #print cost
+            if iter_ % PRINT_EVERY == 0:
+                if not expcost:
+                    expcost = cost
+                else:
+                    expcost = .95 * expcost + .05 * cost
+                print "iter %d: %f" % (iter_, expcost)
 
-        if iter_ % SAVE_PARAMS_EVERY == 0 and useSaved:
-            save_params(iter_, x)
-            
-        if iter_ % ANNEAL_EVERY == 0:
-            step *= 0.5
-    
+            '''if iter_ % SAVE_PARAMS_EVERY == 0 and useSaved:
+                save_params(iter_, x)'''
+                
+            if iter_ % ANNEAL_EVERY == 0:
+                step *= 0.5
+    print x.shape
     return x
 
 def sanity_check():

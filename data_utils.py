@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import cPickle as pickle
+import pickle
 import numpy as np
 import os
 import random
@@ -9,7 +9,8 @@ import random
 class StanfordSentiment:
     def __init__(self, path=None, tablesize = 1000000):
         if not path:
-            path = "cs224d/datasets/stanfordSentimentTreebank"
+            #path = "cs224d/datasets/stanfordSentimentTreebank"
+            path = "/home/lusine/NLP/sensegram/word2vec_c/word2vec1"
 
         self.path = path
         self.tablesize = tablesize
@@ -17,23 +18,26 @@ class StanfordSentiment:
     def tokens(self):
         if hasattr(self, "_tokens") and self._tokens:
             return self._tokens
-
+        with open(self.path+ "/tokensTable", "r") as TableFile:
+            self._tokens = pickle.load(TableFile)
+            return self._tokens
         tokens = dict()
         tokenfreq = dict()
         wordcount = 0
         revtokens = []
         idx = 0
-
-        for sentence in self.sentences():
-            for w in sentence:
-                wordcount += 1
-                if not w in tokens:
-                    tokens[w] = idx
-                    revtokens += [w]
-                    tokenfreq[w] = 1
-                    idx += 1
-                else:
-                    tokenfreq[w] += 1
+        with open(self.path + "/data.txt", "r") as f:
+            for line in f:
+                splitted = line.strip().split()[1:]
+                for w in splitted:
+                    wordcount += 1
+                    if not w in tokens:
+                        tokens[w] = idx
+                        revtokens += [w]
+                        tokenfreq[w] = 1
+                        idx += 1
+                    else:
+                        tokenfreq[w] += 1
 
         tokens["UNK"] = idx
         revtokens += ["UNK"]
@@ -44,23 +48,27 @@ class StanfordSentiment:
         self._tokenfreq = tokenfreq
         self._wordcount = wordcount
         self._revtokens = revtokens
+        with open(self.path+'/tokensTable', 'w') as TableFile:
+            pickle.dump(self._tokens, TableFile)
         return self._tokens
     
     def sentences(self):
         if hasattr(self, "_sentences") and self._sentences:
             return self._sentences
-
         sentences = []
-        with open(self.path + "/datasetSentences.txt", "r") as f:
-            first = True
+        #with open(self.path + "/datasetSentences.txt", "r") as f:
+        with open(self.path + "/data.txt", "r") as f:
+        #with open(self.path + "/data.txt", "r") as f:
+            #first = True
             for line in f:
-                if first:
+                '''if first:
                     first = False
-                    continue
-
+                    continue'''
                 splitted = line.strip().split()[1:]
                 # Deal with some peculiar encoding issues with this file
-                sentences += [[w.lower().decode("utf-8").encode('latin1') for w in splitted]]
+                #sentences += [[w.lower().decode("utf-8").encode('latin1') for w in splitted]]
+                sentences += [[w for w in splitted]]
+            
                 
         self._sentences = sentences
         self._sentlengths = np.array([len(s) for s in sentences])
@@ -93,26 +101,39 @@ class StanfordSentiment:
         return self._allsentences
 
     def getRandomContext(self, C=5):
-        while True:
-            allsent = self.allSentences()
-            sentID = random.randint(0, len(allsent) - 1)
-            sent = allsent[sentID]
-            wordID = random.randint(0, len(sent) - 1)
+        allsent = self.allSentences()
+        sentID = random.randint(0, len(allsent) - 1)
+        sent = allsent[sentID]
+        wordID = random.randint(0, len(sent) - 1)
 
-            context = sent[max(0, wordID - C):wordID] 
-            if wordID+1 < len(sent):
-                context += sent[wordID+1:min(len(sent), wordID + C + 1)]
+        context = sent[max(0, wordID - C):wordID] 
+        if wordID+1 < len(sent):
+            context += sent[wordID+1:min(len(sent), wordID + C + 1)]
 
-            centerword = sent[wordID]
-            context = [w for w in context if w != centerword]
+        centerword = sent[wordID]
+        context = [w for w in context if w != centerword]
 
-            if len(context) > 0:
-                #print 1
-                #print centerword, context
-                yield centerword, context
-            else:
-                #print 2
-                self.getRandomContext(C)
+        if len(context) > 0:
+            return centerword, context
+        else:
+            return self.getRandomContext(C)
+
+    def getContext(self, C=5):
+        
+        #
+        #with open(self.path + "/file", "r") as f: 
+        with open(self.path + "/data.txt", "r") as f:
+            C1 = random.randint(1, C)           
+            for line in f:
+                i = 0
+                splitted = line.strip().split()[1:]
+                for w in splitted:  
+                    context = splitted[max(0, i - C1):i] 
+                    if i+1 < len(splitted):
+                        context += splitted[i+1:min(len(splitted), i + C1 + 1)]
+                    context = [x for x in context if x != w]
+                    i += 1#yield i? #TODO
+                    yield w, context
 
     def sent_labels(self):
         if hasattr(self, "_sent_labels") and self._sent_labels:
@@ -202,10 +223,12 @@ class StanfordSentiment:
     def sampleTable(self):
         if hasattr(self, '_sampleTable') and self._sampleTable is not None:
             return self._sampleTable
-
+        with open(self.path+'/sampleTable', "r") as TableFile:
+            self._sampleTable = pickle.load(TableFile)
+        return self._sampleTable
         nTokens = len(self.tokens())
         samplingFreq = np.zeros((nTokens,))
-        self.allSentences()
+        #self.allSentences() TODO ?????
         i = 0
         for w in xrange(nTokens):
             w = self._revtokens[i]
@@ -224,11 +247,15 @@ class StanfordSentiment:
         self._sampleTable = [0] * self.tablesize
 
         j = 0
+        
         for i in xrange(self.tablesize):
             while i > samplingFreq[j]:
                 j += 1
             self._sampleTable[i] = j
-
+            if (i % 100000 == 0):
+                print i, j
+        with open(self.path+'/sampleTable', 'w') as TableFile:
+            pickle.dump(self._sampleTable, TableFile)
         return self._sampleTable
 
     def rejectProb(self):
@@ -250,3 +277,4 @@ class StanfordSentiment:
 
     def sampleTokenIdx(self):
         return self.sampleTable()[random.randint(0, self.tablesize - 1)]
+

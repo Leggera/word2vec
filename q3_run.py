@@ -16,14 +16,15 @@ tokens = dataset.tokens()
 print 'c'
 nWords = len(tokens)#2771466#1913160188 - not unique
 
+print nWords
 
 # We are going to train 10-dimensional vectors for this assignment
 dimVectors = 10#100 
 
 # Context size
 C = 5#10
-word = dataset.getRandomContext(C)
-#word = dataset.getContext(C)#can input random(C) inside this function
+#word = dataset.getRandomContext(C)
+word = dataset.getContext(C)#can input random(C) inside this function
 it = iter(word)
 # Reset the random seed to make sure that everyone gets the same results
 random.seed(31415)
@@ -31,7 +32,9 @@ np.random.seed(9265)
 print 'd'
 wordVectors = np.concatenate(((np.random.rand(nWords, dimVectors) - .5) / \
 	dimVectors, np.random.rand(nWords, dimVectors)), axis=0)
+print wordVectors.shape
 print 'e'
+
 wordVectors0 = sgd(
     lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, it, 
     	negSamplingCostAndGradient), 
@@ -39,6 +42,9 @@ wordVectors0 = sgd(
 print "sanity check: cost at convergence should be around or below 10"
 
 # sum the input and output word vectors
+print wordVectors0[:nWords,:].shape
+print wordVectors0[nWords:,:].shape
+
 wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:])
 
 # Visualize the word vectors you trained

@@ -329,47 +329,50 @@ def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, it, wor
         c, c_target, idx_in, gin, gin_target, idx_out, gout, gout_target = word2vecModel(centerword, C1, context, tokens, inputVectors, outputVectors, prev_idx, dataset, word2vecCostAndGradient)
         #print idx_out
         count += 1
-        if ((count < batchsize) and (len(idx_in)) and (len(idx_out))):
-            '''h = [i + N/2 for i in idx_out]
-            grad[h, :] += gout / batchsize
-            h = [i + N/2 for i in idx_in]
-            grad[h, :] += gout_target / batchsize
-            grad[t, :] += (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)) / batchsize'''
-            #print count
-            #print "OK"
-            cost += (sum(c) + c_target) / batchsize / denom
-            if (first):
-                first = False
-                I_in = idx_in
-                I_out = idx_out
-                GradIn = (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).reshape(-1, 1) / batchsize
-                GradOut = gout
-                GradOut_target = gout_target
-                T = [t]
-            else:
-                I_in = np.concatenate([I_in, idx_in])
-                I_out = np.concatenate([I_out, idx_out])
+        if (count < batchsize):
+            if ((len(idx_in)) and (len(idx_out))):
+                '''h = [i + N/2 for i in idx_out]
+                grad[h, :] += gout / batchsize
+                h = [i + N/2 for i in idx_in]
+                grad[h, :] += gout_target / batchsize
+                grad[t, :] += (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)) / batchsize'''
+                #print count
+                #print "OK"
+                cost += (sum(c) + c_target) / batchsize / denom
+                if (first):
+                    first = False
+                    I_in = idx_in
+                    I_out = idx_out
+                    GradIn = (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).reshape(-1, 1) / batchsize
+                    GradOut = gout
+                    GradOut_target = gout_target
+                    T = [t]
+                else:
+                    I_in = np.concatenate([I_in, idx_in])
+                    I_out = np.concatenate([I_out, idx_out])
+                    
+                    try:
+                        GradIn = np.concatenate([GradIn, (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).reshape(-1, 1) / batchsize], axis = 1)
+                    except:
+                        print idx_in
+                        print idx_out
+                        print centerword
+                        print gin.shape
+                        print gin_target.shape
+                        print GradIn.shape
+                        exit()
+                    GradOut = np.concatenate([GradOut, gout])
+                    GradOut_target = np.concatenate([GradOut_target, gout_target])
+                    T += [t]
                 
-                try:
-                    GradIn = np.concatenate([GradIn, (np.sum(gin, axis=1) + np.sum(gin_target, axis = 0)).reshape(-1, 1) / batchsize], axis = 1)
-                except:
-                    print idx_in
-                    print idx_out
-                    print centerword
-                    print gin.shape
-                    print gin_target.shape
-                    print GradIn.shape
-                    exit()
-                GradOut = np.concatenate([GradOut, gout])
-                GradOut_target = np.concatenate([GradOut_target, gout_target])
-                T += [t]
-            
-            '''grad[T, :] += GradIn.T
-            h = [i + N/2 for i in I_out]
-            grad[h, :] += GradOut / batchsize
-            h = [i + N/2 for i in I_in]
-            grad[h, :] += GradOut_target / batchsize'''
-            #print "WHAT"
+                '''grad[T, :] += GradIn.T
+                h = [i + N/2 for i in I_out]
+                grad[h, :] += GradOut / batchsize
+                h = [i + N/2 for i in I_in]
+                grad[h, :] += GradOut_target / batchsize'''
+                #print "WHAT"
+            else:
+                continue
         else:
             return cost, I_in, GradIn, I_out, GradOut, GradOut_target, T   
             #return cost, grad
